@@ -196,13 +196,16 @@ class AmebaPost extends AmebaCurl
     private $password;
     private $errors;
 
-    function __construct($id,$password)
+    function __construct($id,$password,$cookie_filename=null)
     {
         parent::__construct(implode(' ',array(
             'Mozilla/5.0 (Windows NT 6.1)',
             'AppleWebKit/537.36 (KHTML, like Gecko)',
             'Chrome/28.0.1500.63 Safari/537.36'
         )));
+        if($cookie_filename){
+            $this->setCookieFilename($cookie_filename);
+        }
         $this->login($id,$password);
         $this->errors = null;
     }
