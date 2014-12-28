@@ -1,0 +1,27 @@
+{
+    "name": "ateliee/amebapost",
+    "type": "library",
+    "description": "ameba post program",
+    "keywords": [],
+    "homepage": "https://github.com/ateliee/amebapost",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "ateliee",
+            "email": "info@ateliee.com",
+            "homepage": "http://ateliee.com"
+        }
+    ],
+    "repositories": [
+        {
+            "type": "pear",
+            "url": "http://pear.php.net/"
+        }
+    ],
+    "require": {
+        "php": ">=5.0.0"
+    },
+    "autoload": {
+        "psr-0": { "PMP": "src/class" }
+    }
+}
