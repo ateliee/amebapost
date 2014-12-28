@@ -22,6 +22,6 @@
         "php": ">=5.0.0"
     },
     "autoload": {
-        "psr-0": { "PMP": "src/class" }
+        "psr-0": { "Ameba": "src/class" }
     }
 }
