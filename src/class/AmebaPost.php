@@ -228,7 +228,7 @@ class AmebaPost extends AmebaCurl
         );
         $this->post(self::$DO_LOGIN,$posts);
         // login success
-        if($this->isSuccess() == self::$URL_MYPAGE){
+        if(preg_match('/^'.preg_quote(self::$URL_MYPAGE,'/').'/',$this->isSuccess())){
             $this->id = $id;
             $this->password = $password;
             return true;
