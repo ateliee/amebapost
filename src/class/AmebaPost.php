@@ -373,7 +373,7 @@ class AmebaPost extends AmebaCurl
      */
     public function getThemeIds()
     {
-        if(preg_match_all('/<option value="(\d+)">([^<]+)/', $this->get(self::$URL_LIST),$matchs)){
+        if(preg_match_all('/<option *value="(\d+)" *>([^<]+)/', $this->get(self::$URL_LIST),$matchs)){
             return array_combine($matchs[1],$matchs[2]);
         }
         return null;
