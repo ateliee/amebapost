@@ -17,26 +17,37 @@ class AmebaCurl
 {
     private $userAgent;
     private $curl;
-    private $cookie_filename;
     private $cookie;
 
     function __construct($useragent)
     {
         $this->curl = null;
         $this->userAgent = $useragent;
-        $this->cookie_filename = dirname(__FILE__).'/tmp';
-        $this->cookie = false;
+        $this->cookie = null;
+    }
+
+    function __destruct()
+    {
+        if($this->cookie){
+            fclose($this->cookie);
+        }
     }
 
     /**
-     * @param $filename
+     * @return resource
+     * @throws AmebaException
      */
-    public function setCookieFilename($filename)
+    protected function openCookieFile()
     {
-        if($this->cookie_filename != $filename){
-            $this->cookie_filename = $filename;
-            $this->cookie = false;
+        if($this->cookie){
+            return $this->cookie;
         }
+        if($this->cookie = tmpfile()){
+            //$d = stream_get_meta_data($fp);
+            //$this->cookie_filename = $d['uri'];
+            return $this->cookie;
+        }
+        throw new AmebaException('can not open tmp file.');
     }
 
     /**
@@ -44,7 +55,7 @@ class AmebaCurl
      * @param array $posts
      * @return mixed
      */
-    protected function post($url,array $posts=array())
+    protected function post($url,array $posts=array(),array $options=array())
     {
         $this->close();
 
@@ -52,7 +63,11 @@ class AmebaCurl
             $this->setOption(CURLOPT_POST,true);
             $this->setOption(CURLOPT_POSTFIELDS, http_build_query($posts));
 
-            return $this->exec();
+            foreach($options as $k => $v){
+                $this->setOption($k,$v);
+            }
+            $res = $this->exec();
+            return $res;
         }
     }
 
@@ -80,33 +95,33 @@ class AmebaCurl
     protected function init($url)
     {
         try{
-            if(!$this->cookie){
-                if(!($fp = @fopen($this->cookie_filename, "w"))){
-                    throw new AmebaException('can not create cookie file '.$this->cookie_filename);
-                }
-            }
+            $this->openCookieFile();
             if($this->curl = curl_init($url)){
                 $this->setOption(CURLOPT_SSL_VERIFYPEER, false);
                 $this->setOption(CURLOPT_SSL_VERIFYHOST, false);
                 $this->setOption(CURLOPT_USERAGENT, $this->userAgent);
                 $this->setOption(CURLOPT_RETURNTRANSFER, true);
-                $this->setOption(CURLOPT_COOKIEJAR,'cookie');
-                $this->setOption(CURLOPT_COOKIEFILE, $this->cookie_filename);
-                if(!$this->cookie){
-                    $this->setOption(CURLOPT_WRITEHEADER, $fp);
-                }
+                $this->setOption(CURLOPT_COOKIEJAR, $this->cookie);
+                $this->setOption(CURLOPT_COOKIEFILE, $this->cookie);
+                $this->setOption(CURLOPT_CONNECTTIMEOUT,10);
+                $this->setOption(CURLOPT_TIMEOUT,15);
+                $this->setOption(CURLOPT_MAXREDIRS,30);
+                $this->setOption(CURLOPT_AUTOREFERER,true);
+                $this->setOption(CURLOPT_ENCODING, 'gzip, deflate');
+                $this->setOption(CURLOPT_HTTPHEADER,array(
+                    'Accept: ' . 'text/html,' . 'application/xhtml+xml,' . 'application/xml' . ';q=0.9,*/*;q=0.8',
+                    'Accept-Language: ' . 'ja,en-us;q=0.7,en;q=0.3'
+                ));
+                //if(!$this->cookie){
+                //$this->setOption(CURLOPT_WRITEHEADER, $fp);
+                //}
                 $this->setOption(CURLOPT_FOLLOWLOCATION, true);
             }else{
                 throw new AmebaException('error curl_init with '.$url);
             }
         }catch (\Exception $e){
-            if($fp){
-                fclose($fp);
-            }
             throw $e;
-            return false;
         }
-        $this->cookie = true;
         return true;
     }
 
@@ -192,22 +207,49 @@ class AmebaPost extends AmebaCurl
     static $OPT_FACEBOOK = 2;
     static $OPT_TWITTER = 4;
 
+    static $LOG_SUCCESS = 0;
+    static $LOG_ERROR = 1;
+    static $LOG_WARNING = 10;
+
     private $id;
     private $password;
     private $errors;
+    private $log;
 
-    function __construct($id,$password,$cookie_filename=null)
+    function __construct($id,$password,$log='')
     {
         parent::__construct(implode(' ',array(
-            'Mozilla/5.0 (Windows NT 6.1)',
-            'AppleWebKit/537.36 (KHTML, like Gecko)',
+            'Mozilla/5.0 (Windows NT 6.1) ',
+            'AppleWebKit/537.36 (KHTML, like Gecko) ',
             'Chrome/28.0.1500.63 Safari/537.36'
         )));
-        if($cookie_filename){
-            $this->setCookieFilename($cookie_filename);
-        }
         $this->login($id,$password);
         $this->errors = null;
+        $this->log = $log;
+    }
+
+    /**
+     * @param $type
+     * @param $message
+     */
+    protected function outputLog($type,$message){
+        if(!$this->log){
+            return;
+        }
+        if($fp = fopen($this->log,'a')){
+            $type_name = 'None';
+            if($type == self::$LOG_SUCCESS) {
+                $type_name = 'Success';
+            }else if($type == self::$LOG_ERROR){
+                $type_name = 'Error';
+            }else if($type == self::$LOG_WARNING){
+                $type_name = 'Warning';
+            }
+            $message = str_replace(PHP_EOL, '', $message);
+            $message = sprintf('%s(%s):%s'.PHP_EOL,date('Y/m/d H:i:s'),$type_name,$message);
+            fwrite($fp,$message);
+            fclose($fp);
+        }
     }
 
     /**
@@ -233,9 +275,9 @@ class AmebaPost extends AmebaCurl
             $this->password = $password;
             return true;
         }else{
+            $this->outputLog(self::$LOG_ERROR,sprintf('login failed "s".',$id));
             throw new AmebaException('failure login Ameba');
         }
-        return false;
     }
 
     /**
@@ -266,7 +308,7 @@ class AmebaPost extends AmebaCurl
      */
     protected function getInsertParams()
     {
-        if (preg_match_all ('/<input type="hidden" name="([^"]*+)" value="([^"]*+)/',$this->get(self::$URL_INSERT),$matchs)){
+        if (preg_match_all ('/<input +type *= *"hidden" +name *= *"([^"]+)" value *= *"([^"]*)"/',$this->get(self::$URL_INSERT),$matchs)){
             return array_combine($matchs[1],$matchs[2]);
         }
         return array();
@@ -354,8 +396,10 @@ class AmebaPost extends AmebaCurl
         $posts = array_merge($params,array(
             'entry_title' => $title,
             'entry_text' => $text,
-            'theme_id' => $theme_id,
-            'publish_flg' => $publish,
+            'theme_id' => $theme_id,Accepth,
+            //'entryFontSize' => '',
+            //'hrefToEntryTextArea' => 'http://',
+            //'linkTargetToEntryTextArea' => '_blank',
             'deny_comment' => ($option & self::$OPT_DENY_COMMENT) ? 1 : null,
             'facebook_feed_flg' => ($option & self::$OPT_FACEBOOK) ? 1 : null,
             'twitter_feed_flg' => ($option & self::$OPT_TWITTER) ? 1 : null,
@@ -363,8 +407,10 @@ class AmebaPost extends AmebaCurl
         ));
         $result = $this->post($url,$posts);
         if($this->isSuccessHtml($result)){
+            $this->outputLog(self::$LOG_SUCCESS,sprintf('post entry.'));
             return true;
         }
+        $this->outputLog(self::$LOG_ERROR,sprintf('post entry failed.'));
         return false;
     }
 
@@ -374,8 +420,13 @@ class AmebaPost extends AmebaCurl
     public function getThemeIds()
     {
         if(preg_match_all('/<option *value="(\d+)" *>([^<]+)/', $this->get(self::$URL_LIST),$matchs)){
-            return array_combine($matchs[1],$matchs[2]);
+            $themes = array_combine($matchs[1],$matchs[2]);
+            if(!$themes || count($themes) <= 0){
+                $this->outputLog(self::$LOG_WARNING,sprintf('not found themes.'));
+            }
+            return $themes;
         }
+        $this->outputLog(self::$LOG_ERROR,sprintf('failed get themes.'));
         return null;
     }
 
@@ -389,6 +440,8 @@ class AmebaPost extends AmebaCurl
         $list = array();
         if(preg_match_all('/<a href="http:\/\/ameblo\.jp\/(.+)\/entry\-(\d+)\.html">(.+)<\/a>/',$result,$matchs)){
             $list = array_combine($matchs[2],$matchs[3]);
+        }else{
+            $this->outputLog(self::$LOG_WARNING,sprintf('failed get entrys.'));
         }
         return $list;
     }
