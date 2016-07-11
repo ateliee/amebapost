@@ -18,12 +18,16 @@ class AmebaCurl
     private $userAgent;
     private $curl;
     private $cookie;
+    private $follow_location;
+    private $curl_loops;
+    private $curl_max_loops;
 
     function __construct($useragent)
     {
         $this->curl = null;
         $this->userAgent = $useragent;
         $this->cookie = null;
+        $this->curl_max_loops = 20;
     }
 
     function __destruct()
@@ -95,6 +99,7 @@ class AmebaCurl
     protected function init($url)
     {
         try{
+            $this->follow_location = false;
             $this->openCookieFile();
             if($this->curl = curl_init($url)){
                 $this->setOption(CURLOPT_SSL_VERIFYPEER, false);
@@ -141,7 +146,59 @@ class AmebaCurl
      */
     protected function exec()
     {
+        if($this->follow_location){
+            // for safe mode CURLOPT_FOLLOWLOCATION
+            $this->curl_loops = 0;
+            return $this->curl_redir_exec();
+        }
         return curl_exec($this->curl);
+    }
+
+    /**
+     * @return bool|mixed
+     */
+    protected function curl_redir_exec()
+    {
+        if ($this->curl_loops++ >= $this->curl_max_loops){
+            return false;
+        }
+        curl_setopt($this->curl, CURLOPT_HEADER, true);
+        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+
+        $data = curl_exec($this->curl);
+
+        list($header, $data) = explode("\r\n\r\n", $data, 2);
+        $http_code = curl_getinfo($this->curl, CURLINFO_HTTP_CODE);
+        if ($http_code == 301 || $http_code == 302) {
+            $matches = array();
+
+            if(!preg_match('/Location:(.*?)\n/', $header, $matches)){
+                return $data;
+            }
+            $url = @parse_url(trim(array_pop($matches)));
+            if (!$url) {
+                return $data;
+            }
+            $last_url = parse_url(curl_getinfo($this->curl, CURLINFO_EFFECTIVE_URL));
+            if (!isset($url['scheme']) || empty($url['scheme'])) {
+                $url['scheme'] = $last_url['scheme'];
+            }
+            if (!isset($url['host']) || empty($url['host'])) {
+                $url['host'] = $last_url['host'];
+            }
+            if (!isset($url['path'])) {
+                $url['path'] = '';
+            }
+            $new_url = $url['scheme'].'://'.$url['host'].$url['path'].(array_key_exists('query', $url) && $url['query'] ? '?'.$url['query'] : '');
+
+            curl_setopt($this->curl, CURLOPT_URL, $new_url);
+            curl_setopt($this->curl, CURLOPT_POST, false);
+            if(curl_getinfo($this->curl,CURLOPT_COOKIEJAR)){
+                curl_setopt($this->curl, CURLOPT_COOKIEJAR, false);
+            }
+            return $this->curl_redir_exec();
+        }
+        return $data;
     }
 
     /**
@@ -150,7 +207,18 @@ class AmebaCurl
      */
     protected function setOption($id,$value)
     {
-        curl_setopt($this->curl,$id,$value);
+        if($id == CURLOPT_FOLLOWLOCATION && !$this->followLocationEnable()){
+            $this->follow_location = true;
+        }else{
+            curl_setopt($this->curl,$id,$value);
+        }
+    }
+
+    /**
+     * @return bool
+     */
+    private function followLocationEnable(){
+        return !(ini_get('open_basedir') == '' && ini_get('safe_mode') == 'Off');
     }
 
     /**
@@ -396,7 +464,8 @@ class AmebaPost extends AmebaCurl
         $posts = array_merge($params,array(
             'entry_title' => $title,
             'entry_text' => $text,
-            'theme_id' => $theme_id,Accepth,
+            'theme_id' => $theme_id,
+            'publish_flg' => $publish,
             //'entryFontSize' => '',
             //'hrefToEntryTextArea' => 'http://',
             //'linkTargetToEntryTextArea' => '_blank',
