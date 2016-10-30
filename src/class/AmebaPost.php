@@ -46,6 +46,8 @@ class AmebaCurl
         if($this->cookie){
             return $this->cookie;
         }
+//        $file = tempnam(sys_get_temp_dir(),'AMEBA');
+//        if($this->cookie = fopen($file,'w+')){
         if($this->cookie = tmpfile()){
             //$d = stream_get_meta_data($fp);
             //$this->cookie_filename = $d['uri'];
@@ -78,25 +80,28 @@ class AmebaCurl
     /**
      * @param $url
      * @param array $posts
+     * @param bool $cookie
      * @return mixed
      */
-    protected function get($url,$posts=array())
+    protected function get($url,$posts=array(),$cookie=true)
     {
         $this->close();
 
         if(count($posts)){
             $url = implode('?',array($url,(count($posts) ? http_build_query($posts,'','&') : '')));
         }
-        if($this->init($url)){
+        if($this->init($url,$cookie)){
             return $this->exec();
         }
     }
 
     /**
      * @param $url
+     * @param bool $cookie
      * @return bool
+     * @throws \Exception
      */
-    protected function init($url)
+    protected function init($url,$cookie=true)
     {
         try{
             $this->follow_location = false;
@@ -107,7 +112,9 @@ class AmebaCurl
                 $this->setOption(CURLOPT_USERAGENT, $this->userAgent);
                 $this->setOption(CURLOPT_RETURNTRANSFER, true);
                 $this->setOption(CURLOPT_COOKIEJAR, $this->cookie);
-                $this->setOption(CURLOPT_COOKIEFILE, $this->cookie);
+                if($cookie){
+                    $this->setOption(CURLOPT_COOKIEFILE, $this->cookie);
+                }
                 $this->setOption(CURLOPT_CONNECTTIMEOUT,10);
                 $this->setOption(CURLOPT_TIMEOUT,15);
                 $this->setOption(CURLOPT_MAXREDIRS,30);
@@ -254,8 +261,10 @@ class AmebaPost extends AmebaCurl
 {
     static $URL_MYPAGE = 'http://mypage.ameba.jp';
     static $URL_LIST = 'http://blog.ameba.jp/ucs/entry/srventrylist.do';
-    static $URL_LOGIN = 'https://www.ameba.jp/loginForm.do';
-    static $DO_LOGIN = 'https://www.ameba.jp/login.do';
+    //static $URL_LOGIN = 'https://www.ameba.jp/loginForm.do';
+    static $URL_LOGIN = 'https://dauth.user.ameba.jp/login/ameba';
+    //static $DO_LOGIN = 'https://www.ameba.jp/login.do';
+    static $DO_LOGIN = 'https://dauth.user.ameba.jp/accounts/login';
     static $URL_INSERT = 'http://blog.ameba.jp/ucs/entry/srventryinsertinput.do';
     static $DO_INSERT_PUBLISH = 'http://blog.ameba.jp/ucs/entry/srventryinsertend1.do';
     static $DO_INSERT_DRAFT = 'http://blog.ameba.jp/ucs/entry/srventryinsertdraft.do';
@@ -321,6 +330,18 @@ class AmebaPost extends AmebaCurl
     }
 
     /**
+     * @return string
+     */
+    protected function getCsrfToken(){
+        $res = $this->get(self::$URL_LOGIN,[],false);
+        if(preg_match('/name="csrf_token" +value="(.+)"/',$res,$matchs)){
+            return $matchs[1];
+        }
+        return '';
+
+    }
+
+    /**
      * @param $id
      * @param $password
      * @return bool
@@ -329,12 +350,15 @@ class AmebaPost extends AmebaCurl
     public function login($id,$password)
     {
         $posts = array(
-            'serviceId' => '0',
-            'amebaId' => $id,
-            'password' => md5($password),
-            'Submit.x' => '0',
-            'Submit.y' => '0',
-            'saveFlg' => '1'
+//            'serviceId' => '0',
+//            'amebaId' => $id,
+//            'password' => md5($password),
+//            'Submit.x' => '0',
+//            'Submit.y' => '0',
+//            'saveFlg' => '1'
+            'csrf_token' => $this->getCsrfToken(),
+            'accountId' => $id,
+            'password' => ($password),
         );
         $this->post(self::$DO_LOGIN,$posts);
         // login success
