@@ -333,7 +333,7 @@ class AmebaPost extends AmebaCurl
      * @return string
      */
     protected function getCsrfToken(){
-        $res = $this->get(self::$URL_LOGIN,[],false);
+        $res = $this->get(self::$URL_LOGIN,array(),false);
         if(preg_match('/name="csrf_token" +value="(.+)"/',$res,$matchs)){
             return $matchs[1];
         }
