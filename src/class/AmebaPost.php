@@ -10,6 +10,33 @@ class AmebaException extends \Exception
 }
 
 /**
+ * Class AmebaCurlData
+ * @package Ameba
+ */
+class AmebaCurlData
+{
+    var $url;
+    var $http_code;
+    var $header;
+    var $body;
+
+    /**
+     * AmebaCurlData constructor.
+     * @param $url
+     * @param $header
+     * @param $body
+     * @param $http_code
+     */
+    function __construct($url,$header,$body,$http_code)
+    {
+        $this->url = $url;
+        $this->http_code = $http_code;
+        $this->header = $header;
+        $this->body = $body;
+    }
+}
+
+/**
  * Class AmebaCurl
  * @package Ameba
  */
@@ -21,6 +48,10 @@ class AmebaCurl
     private $follow_location;
     private $curl_loops;
     private $curl_max_loops;
+    /**
+     * @var array[AmebaCurlData]
+     */
+    protected $curl_datas;
 
     function __construct($useragent)
     {
@@ -28,6 +59,7 @@ class AmebaCurl
         $this->userAgent = $useragent;
         $this->cookie = null;
         $this->curl_max_loops = 20;
+        $this->curl_datas = [];
     }
 
     function __destruct()
@@ -75,6 +107,7 @@ class AmebaCurl
             $res = $this->exec();
             return $res;
         }
+        return false;
     }
 
     /**
@@ -110,6 +143,7 @@ class AmebaCurl
                 $this->setOption(CURLOPT_SSL_VERIFYPEER, false);
                 $this->setOption(CURLOPT_SSL_VERIFYHOST, false);
                 $this->setOption(CURLOPT_USERAGENT, $this->userAgent);
+                $this->setOption(CURLOPT_HEADER, true);
                 $this->setOption(CURLOPT_RETURNTRANSFER, true);
                 $this->setOption(CURLOPT_COOKIEJAR, $this->cookie);
                 if($cookie){
@@ -158,7 +192,25 @@ class AmebaCurl
             $this->curl_loops = 0;
             return $this->curl_redir_exec();
         }
-        return curl_exec($this->curl);
+        return $this->_exec()->body;
+    }
+
+    /**
+     * @return AmebaCurlData
+     */
+    protected function _exec(){
+        $data = curl_exec($this->curl);
+        list($header, $body) = explode("\r\n\r\n", $data, 2);
+        $http_code = curl_getinfo($this->curl, CURLINFO_HTTP_CODE);
+
+        $d = new AmebaCurlData(
+            curl_getinfo($this->curl, CURLINFO_EFFECTIVE_URL),
+            $header,
+            $body,
+            $http_code
+        );
+        $this->curl_datas[] = $d;
+        return $d;
     }
 
     /**
@@ -169,22 +221,17 @@ class AmebaCurl
         if ($this->curl_loops++ >= $this->curl_max_loops){
             return false;
         }
-        curl_setopt($this->curl, CURLOPT_HEADER, true);
-        curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+        $data = $this->_exec();
 
-        $data = curl_exec($this->curl);
-
-        list($header, $data) = explode("\r\n\r\n", $data, 2);
-        $http_code = curl_getinfo($this->curl, CURLINFO_HTTP_CODE);
-        if ($http_code == 301 || $http_code == 302) {
+        if ($data->http_code == 301 || $data->http_code == 302) {
             $matches = array();
 
-            if(!preg_match('/Location:(.*?)\n/', $header, $matches)){
-                return $data;
+            if(!preg_match('/Location:(.*?)\n/', $data->header, $matches)){
+                return $data->body;
             }
             $url = @parse_url(trim(array_pop($matches)));
             if (!$url) {
-                return $data;
+                return $data->body;
             }
             $last_url = parse_url(curl_getinfo($this->curl, CURLINFO_EFFECTIVE_URL));
             if (!isset($url['scheme']) || empty($url['scheme'])) {
@@ -205,7 +252,7 @@ class AmebaCurl
             }
             return $this->curl_redir_exec();
         }
-        return $data;
+        return $data->body;
     }
 
     /**
@@ -338,7 +385,6 @@ class AmebaPost extends AmebaCurl
             return $matchs[1];
         }
         return '';
-
     }
 
     /**
@@ -400,7 +446,7 @@ class AmebaPost extends AmebaCurl
      */
     protected function getInsertParams()
     {
-        if (preg_match_all ('/<input +type *= *"hidden" +name *= *"([^"]+)" value *= *"([^"]*)"/',$this->get(self::$URL_INSERT),$matchs)){
+        if (preg_match_all ('/<input +type *= *"hidden" +name *= *"([^"]+)" +value *= *"([^"]*)"/',$this->get(self::$URL_INSERT),$matchs)){
             return array_combine($matchs[1],$matchs[2]);
         }
         return array();
@@ -545,6 +591,9 @@ class AmebaPost extends AmebaCurl
      */
     private function isSuccessHtml($html)
     {
+        if($html == ""){
+            return false;
+        }
         if (preg_match ('@<span class="error">(.+?)</span>@s', $html, $matchs)) {
             $errors = preg_split ('@\s*+<br />@', $matchs[1], - 1, PREG_SPLIT_NO_EMPTY);
             $this->errors = array();
