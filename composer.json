@@ -21,6 +21,10 @@
     "require": {
         "php": ">=5.0.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "*",
+        "phake/phake": "*"
+    },
     "autoload": {
         "psr-4": { "Ameba\\": "src/class" }
     }
