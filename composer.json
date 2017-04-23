@@ -23,7 +23,8 @@
     },
     "require-dev": {
         "phpunit/phpunit": "*",
-        "phake/phake": "*"
+        "phake/phake": "*",
+        "satooshi/php-coveralls": "dev-master"
     },
     "autoload": {
         "psr-4": { "Ameba\\": "src/class" }
