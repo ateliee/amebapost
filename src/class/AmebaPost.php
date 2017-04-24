@@ -59,7 +59,7 @@ class AmebaCurl
         $this->userAgent = $useragent;
         $this->cookie = null;
         $this->curl_max_loops = 20;
-        $this->curl_datas = [];
+        $this->curl_datas = array();
     }
 
     function __destruct()
