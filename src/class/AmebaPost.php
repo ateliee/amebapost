@@ -38,6 +38,13 @@ class AmebaCurl
     }
 
     /**
+     * @return mixed|null
+     */
+    public function getCurl(){
+        return $this->curl;
+    }
+
+    /**
      * @return resource
      * @throws AmebaException
      */
@@ -260,20 +267,20 @@ class AmebaCurl
 class AmebaPost extends AmebaCurl
 {
     static $URL_MYPAGE = 'http://mypage.ameba.jp';
-    static $URL_LIST = 'http://blog.ameba.jp/ucs/entry/srventrylist.do';
+    static $URL_LIST = 'https://blog.ameba.jp/ucs/entry/srventrylist.do';
     //static $URL_LOGIN = 'https://www.ameba.jp/loginForm.do';
     static $URL_LOGIN = 'https://dauth.user.ameba.jp/login/ameba';
     //static $DO_LOGIN = 'https://www.ameba.jp/login.do';
     static $DO_LOGIN = 'https://dauth.user.ameba.jp/accounts/login';
-    static $URL_INSERT = 'http://blog.ameba.jp/ucs/entry/srventryinsertinput.do';
-    static $DO_INSERT_PUBLISH = 'http://blog.ameba.jp/ucs/entry/srventryinsertend1.do';
-    static $DO_INSERT_DRAFT = 'http://blog.ameba.jp/ucs/entry/srventryinsertdraft.do';
-    static $DO_INSERT_PROTECTED = 'http://blog.ameba.jp/ucs/entry/srventryinsertend1.do';
-    static $URL_UPDATE = 'http://blog.ameba.jp/ucs/entry/srventryupdateinput.do';
-    static $DO_UPDATE_PUBLISH = 'http://blog.ameba.jp/ucs/entry/srventryupdateend1.do';
-    static $DO_UPDATE_DRAFT = 'http://blog.ameba.jp/ucs/entry/srventryupdatedraft.do';
-    static $DO_UPDATE_PROTECTED = 'http://blog.ameba.jp/ucs/entry/srventryupdateend1.do';
-    static $DO_DELETE = 'http://blog.ameba.jp/ucs/entry/srventrydeleteend.do';
+    static $URL_INSERT = 'https://blog.ameba.jp/ucs/entry/srventryinsertinput.do';
+    static $DO_INSERT_PUBLISH = 'https://blog.ameba.jp/ucs/entry/srventryinsertend.do';
+    static $DO_INSERT_DRAFT = 'https://blog.ameba.jp/ucs/entry/srventryinsdraft.do';
+    static $DO_INSERT_PROTECTED = 'https://blog.ameba.jp/ucs/entry/srventryinsertend.do';
+    static $URL_UPDATE = 'https://blog.ameba.jp/ucs/entry/srventryupdateinput.do';
+    static $DO_UPDATE_PUBLISH = 'http://blog.ameba.jp/ucs/entry/srventryupdateend.do';
+    static $DO_UPDATE_DRAFT = 'https://blog.ameba.jp/ucs/entry/srventryupddraft.do';
+    static $DO_UPDATE_PROTECTED = 'https://blog.ameba.jp/ucs/entry/srventryupdateend.do';
+    static $DO_DELETE = 'https://blog.ameba.jp/ucs/entry/srventrydeleteend.do';
 
     static $PUBLISH = 0;
     static $PUBLISH_DRAFT = 1;
@@ -338,7 +345,17 @@ class AmebaPost extends AmebaCurl
             return $matchs[1];
         }
         return '';
+    }
 
+    /**
+     * @return string
+     */
+    protected function getIntertCsrfToken(){
+        $res = $this->get(self::$URL_INSERT,array());
+        if(preg_match('/name="_csrf" +value="(.+)"/',$res,$matchs)){
+            return $matchs[1];
+        }
+        return '';
     }
 
     /**
@@ -486,6 +503,7 @@ class AmebaPost extends AmebaCurl
     private function postEntry($url,array $params,$title,$text,$theme_id,$publish,$datetime,$option)
     {
         $posts = array_merge($params,array(
+            '_csrf' => $this->getIntertCsrfToken(),
             'entry_title' => $title,
             'entry_text' => $text,
             'theme_id' => $theme_id,
@@ -545,6 +563,9 @@ class AmebaPost extends AmebaCurl
      */
     private function isSuccessHtml($html)
     {
+        if(!$html || ($html == "")){
+            return false;
+        }
         if (preg_match ('@<span class="error">(.+?)</span>@s', $html, $matchs)) {
             $errors = preg_split ('@\s*+<br />@', $matchs[1], - 1, PREG_SPLIT_NO_EMPTY);
             $this->errors = array();
