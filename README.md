@@ -1,4 +1,8 @@
 # アメブロ外部連動用プログラム
+
+[![Build Status](https://travis-ci.org/ateliee/amebapost.svg?branch=master)](https://travis-ci.org/ateliee/amebapost)
+[![Coverage Status](https://coveralls.io/repos/github/ateliee/amebapost/badge.svg?branch=master)](https://coveralls.io/github/ateliee/amebapost?branch=master)
+
 アメブロの外部連動が終了したので、プログラムよりログインして外部投稿するプログラムを作成致しました。
 
 ## 使い方
