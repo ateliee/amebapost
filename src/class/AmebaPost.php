@@ -464,7 +464,7 @@ class AmebaPost extends AmebaCurl
      */
     protected function getInsertParams()
     {
-        if (preg_match_all ('/<input +type *= *"hidden" +name *= *"([^"]+)" value *= *"([^"]*)"/',$this->get(self::$URL_INSERT),$matchs)){
+        if (preg_match_all ('/<input +type *= *"hidden" +name *= *"([^"]+)" +value *= *"([^"]*)"/',$this->get(self::$URL_INSERT),$matchs)){
             return array_combine($matchs[1],$matchs[2]);
         }
         return array();
