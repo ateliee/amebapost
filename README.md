@@ -29,3 +29,8 @@ $theme_id = key($themes);
 $ameba->insertEntry('テスト','これはテストです',$theme_id,AmebaPost::$PUBLISH,time(),0);
 
 ```
+
+## Update
+|更新日|内容|
+|---|---|
+|2017-11-02|アメブロ仕様変更に対応|
