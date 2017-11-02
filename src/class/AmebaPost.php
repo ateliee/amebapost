@@ -354,9 +354,9 @@ class AmebaPost extends AmebaCurl
             'AppleWebKit/537.36 (KHTML, like Gecko) ',
             'Chrome/28.0.1500.63 Safari/537.36'
         )));
-        $this->login($id,$password);
-        $this->errors = null;
         $this->log = $log;
+        $this->errors = null;
+        $this->login($id,$password);
     }
 
     /**
