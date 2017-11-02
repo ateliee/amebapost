@@ -431,7 +431,7 @@ class AmebaPost extends AmebaCurl
             $this->password = $password;
             return true;
         }else{
-            $this->outputLog(self::$LOG_ERROR,sprintf('login failed "s".',$id));
+            $this->outputLog(self::$LOG_ERROR,sprintf('login failed "%s".',$id));
             throw new AmebaException('failure login Ameba');
         }
     }
