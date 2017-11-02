@@ -279,7 +279,7 @@ class AmebaCurl
      * @return bool
      */
     private function followLocationEnable(){
-        return (ini_get('open_basedir') == '' && ini_get('safe_mode') == 'Off');
+        return (ini_get('open_basedir') == '' && in_array(ini_get('safe_mode'), array('Off','')));
     }
 
     /**
